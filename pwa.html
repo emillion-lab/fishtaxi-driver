@@ -84,7 +84,7 @@ body{display:flex;flex-direction:column;align-items:center;padding:20px 16px;gap
   <div class="logo" style="display:flex;align-items:center;gap:8px;flex:1"><img src="img/icon-192.png" style="height:28px;object-fit:contain" alt="fish.taxi"> fish<span>.</span><span style="color:var(--y)">taxi</span></div>
   <button onclick="installApp()" id="install-btn" style="display:none;background:var(--y);border:none;color:#000;border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">📲 Install</button>
 </div>
-<div style="font-size:12px;color:var(--mu)">Driver App — Emil M.</div>
+<div style="font-size:12px;color:var(--mu)">Driver App</div>
 
 <!-- STATUS CARD -->
 <div class="card" style="text-align:center">
@@ -100,6 +100,20 @@ body{display:flex;flex-direction:column;align-items:center;padding:20px 16px;gap
     <span id="gps-bar-text">GPS not active</span>
   </div>
   <div style="font-size:11px;color:var(--mu);margin-top:8px;line-height:1.5">⚠️ Keep this screen open (unlocked) while online — closing the app or locking the phone stops GPS updates.</div>
+</div>
+
+<!-- CREDENTIALS -->
+<div class="card">
+  <h3>🔑 Credentials</h3>
+  <div class="info-row">
+    <span class="info-key">Driver ID</span>
+    <span class="info-val" id="val-did">—</span>
+  </div>
+  <div class="info-row">
+    <span class="info-key">Token</span>
+    <span class="info-val" id="val-tok">—</span>
+  </div>
+  <button class="go-btn offline" style="margin-top:12px;padding:10px;font-size:13px;background:var(--s3);color:var(--tx)" onclick="resetCreds()">Change / clear login</button>
 </div>
 
 <!-- GPS INFO -->
@@ -152,12 +166,38 @@ body{display:flex;flex-direction:column;align-items:center;padding:20px 16px;gap
   </div>
 </div>
 
-<div class="footer">fish.taxi Driver App v1.0 · Only visible to you</div>
+<div class="footer">fish.taxi Driver App v1.1 · Only visible to you</div>
 
 <script>
 const WORKER = 'https://mvr-proxy.mihov-emil.workers.dev';
-const DRIVER_ID = '1';
-const TOKEN = 'fishtaxi_emil_2026_secret';
+
+/* Credentials live in this browser only — never in the source.
+   The token is issued per driver and stored in KV as token:{id}. */
+let DRIVER_ID = localStorage.getItem('ft_driver_id') || '';
+let TOKEN     = localStorage.getItem('ft_token') || '';
+
+function showCreds() {
+  document.getElementById('val-did').textContent = DRIVER_ID || '—';
+  document.getElementById('val-tok').textContent =
+    TOKEN ? '••••••' + TOKEN.slice(-4) + ' (' + TOKEN.length + ')' : '—';
+}
+function ensureCreds() {
+  if (!DRIVER_ID) DRIVER_ID = (prompt('Driver ID:') || '').trim();
+  if (!TOKEN)     TOKEN     = (prompt('Driver token:') || '').trim();
+  if (!DRIVER_ID || !TOKEN) { alert('Driver ID and token are required.'); return false; }
+  localStorage.setItem('ft_driver_id', DRIVER_ID);
+  localStorage.setItem('ft_token', TOKEN);
+  showCreds();
+  return true;
+}
+function resetCreds() {
+  localStorage.removeItem('ft_driver_id');
+  localStorage.removeItem('ft_token');
+  DRIVER_ID = ''; TOKEN = '';
+  showCreds();
+  log('Login cleared', 'err');
+}
+showCreds();
 
 let isOnline = false;
 let watchId = null;
@@ -211,6 +251,7 @@ async function sendGPS(lat, lng, online=true) {
 }
 
 async function sendOffline() {
+  if(!DRIVER_ID || !TOKEN) return;
   try {
     await fetch(WORKER + '/status', {
       method: 'POST',
@@ -292,6 +333,7 @@ function toggleOnline() {
       alert('GPS not available on this device');
       return;
     }
+    if(!ensureCreds()) return;
     isOnline = true;
     onlineSince = new Date();
     document.getElementById('status-circle').className = 'status-circle online';
